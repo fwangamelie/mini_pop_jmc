@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>오늘 저녁 뭐 먹지?</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/WantedSans.min.css" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:   #F9F3EC;
+      --sand:    #F2CEA2;
+      --gold:    #F2B84B;
+      --red:     #A60808;
+      --blue:    #4480A6;
+      --ink:     #1A1208;
+      --muted:   #8a7460;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--cream);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Wanted Sans', sans-serif;
+      font-weight: 400;
+      padding: 2.5rem 1.25rem;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* — Background grain texture — */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* — Corner marks — */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 1.5rem;
+      border: 1px solid rgba(26,18,8,0.1);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2.25rem;
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      width: 100%;
+      padding-bottom: 2rem;
+      border-bottom: 1.5px solid var(--ink);
+      position: relative;
+    }
+
+    .header-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      margin-bottom: 1.4rem;
+    }
+    .meta-line {
+      flex: 1;
+      max-width: 60px;
+      height: 1px;
+      background: var(--muted);
+      opacity: 0.5;
+    }
+    .sub-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    h1 {
+      font-family: 'Wanted Sans', sans-serif;
+      font-weight: 700;
+      font-size: clamp(2.6rem, 10vw, 3.8rem);
+      color: var(--ink);
+      line-height: 1.0;
+      letter-spacing: -0.04em;
+    }
+    h1 em {
+      font-style: normal;
+      color: var(--red);
+    }
+
+    .issue-tag {
+      display: inline-block;
+      margin-top: 1rem;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--cream);
+      background: var(--ink);
+      padding: 0.3rem 0.85rem;
+      border-radius: 2px;
+    }
+
+    /* ── Result Card ── */
+    .result-card {
+      width: 100%;
+      background: #fff;
+      border: 1.5px solid var(--ink);
+      border-radius: 4px;
+      padding: 2.75rem 2rem;
+      text-align: center;
+      position: relative;
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      box-shadow: 4px 4px 0px var(--sand);
+    }
+
+    /* Card corner accent */
+    .result-card::before {
+      content: 'MENU';
+      position: absolute;
+      top: -1px; left: -1px;
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: var(--cream);
+      background: var(--ink);
+      padding: 0.22rem 0.6rem;
+      border-radius: 0 0 3px 0;
+    }
+
+    .idle-text {
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--muted);
+      line-height: 1.75;
+      transition: opacity 0.3s;
+    }
+
+    .rolling-display {
+      font-family: 'Wanted Sans', sans-serif;
+      font-size: clamp(1.5rem, 6vw, 2.2rem);
+      font-weight: 700;
+      color: var(--sand);
+      letter-spacing: -0.03em;
+      display: none;
+    }
+    .rolling .rolling-display { display: block; }
+    .rolling .idle-text { opacity: 0; }
+
+    .menu-emoji {
+      font-size: 2.4rem;
+      display: none;
+      animation: floatIn 0.45s ease both;
+    }
+    .menu-emoji.visible { display: block; }
+
+    .menu-name {
+      font-family: 'Wanted Sans', sans-serif;
+      font-size: clamp(1.7rem, 6.5vw, 2.5rem);
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      display: none;
+      animation: popIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    .menu-name.visible { display: block; }
+
+    .menu-tag {
+      display: none;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--cream);
+      background: var(--gold);
+      padding: 0.28rem 0.9rem;
+      border-radius: 2px;
+      animation: fadeUp 0.4s 0.15s ease both;
+    }
+    .menu-tag.visible { display: inline-block; }
+
+    /* ── Tefal badge ── */
+    .tefal-badge {
+      display: none;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.67rem;
+      font-weight: 400;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      animation: fadeUp 0.4s 0.25s ease both;
+    }
+    .tefal-badge.visible { display: flex; }
+    .tefal-dot {
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--blue);
+      flex-shrink: 0;
+    }
+
+    /* ── Recipe link button ── */
+    .recipe-btn {
+      display: none;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.6rem 1.3rem;
+      background: transparent;
+      border: 1.5px solid var(--blue);
+      border-radius: 3px;
+      color: var(--blue);
+      font-family: 'Wanted Sans', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s, transform 0.15s;
+      animation: fadeUp 0.4s 0.35s ease both;
+    }
+    .recipe-btn:hover {
+      background: var(--blue);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+    .recipe-btn.visible { display: inline-flex; }
+
+    /* ── Main buttons ── */
+    .btn-area {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .spin-btn {
+      width: 100%;
+      padding: 1.15rem 2rem;
+      background: var(--red);
+      border: 1.5px solid var(--red);
+      border-radius: 4px;
+      font-family: 'Wanted Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+      box-shadow: 4px 4px 0px rgba(166,8,8,0.3);
+    }
+    .spin-btn:hover  {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0px rgba(166,8,8,0.3);
+      background: #c00a0a;
+    }
+    .spin-btn:active { transform: translate(0,0); box-shadow: 2px 2px 0px rgba(166,8,8,0.3); }
+    .spin-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* shine sweep */
+    .btn-shine {
+      position: absolute;
+      top: 0; left: -80%;
+      width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transform: skewX(-18deg);
+      animation: shine 2.8s infinite;
+    }
+
+    .again-btn {
+      background: transparent;
+      border: 1.5px solid rgba(26,18,8,0.18);
+      color: var(--muted);
+      font-family: 'Wanted Sans', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 0.5rem 1.4rem;
+      border-radius: 30px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: none;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .again-btn:hover { color: var(--ink); border-color: var(--ink); }
+    .again-btn.visible { display: block; }
+
+    /* ── Menu list ── */
+    .menu-list-section { width: 100%; }
+    .list-toggle {
+      width: 100%;
+      background: transparent;
+      border: 1.5px solid rgba(26,18,8,0.15);
+      border-radius: 4px;
+      padding: 0.8rem 1.2rem;
+      color: var(--muted);
+      font-family: 'Wanted Sans', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .list-toggle:hover { color: var(--ink); border-color: var(--ink); }
+    .list-toggle .arrow { transition: transform 0.3s; font-size: 0.7rem; }
+    .list-toggle.open .arrow { transform: rotate(180deg); }
+    .list-toggle.open { color: var(--ink); border-color: var(--ink); border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+
+    .menu-grid {
+      display: none;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 1px;
+      border: 1.5px solid var(--ink);
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      overflow: hidden;
+      background: var(--ink);
+      animation: fadeUp 0.3s ease both;
+    }
+    .menu-grid.open { display: grid; }
+
+    .menu-chip {
+      background: var(--cream);
+      padding: 0.6rem 0.8rem;
+      font-family: 'Wanted Sans', sans-serif;
+      font-size: 0.76rem;
+      font-weight: 400;
+      color: var(--muted);
+      text-align: center;
+      transition: background 0.15s, color 0.15s;
+      cursor: default;
+    }
+    .menu-chip:hover { background: var(--sand); color: var(--ink); }
+    .menu-chip.highlight {
+      background: var(--gold);
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    /* ── Footer line ── */
+    .footer-line {
+      width: 100%;
+      padding-top: 1.5rem;
+      border-top: 1.5px solid var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .footer-brand {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .footer-mark {
+      font-size: 0.6rem;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    /* ── Animations ── */
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.75); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes floatIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(7px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shine {
+      0%   { left: -80%; }
+      55%  { left: 130%; }
+      100% { left: 130%; }
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 0.4; }
+      50%      { opacity: 1; }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      body::after { inset: 0.75rem; }
+      .wrapper { gap: 1.75rem; }
+      .result-card { padding: 2.25rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="header-meta">
+      <span class="meta-line"></span>
+      <span class="sub-label">오늘의 식탁</span>
+      <span class="meta-line"></span>
+    </div>
+    <h1>저녁<br><em>뭐 먹지?</em></h1>
+    <span class="issue-tag">Tefal Recipe Vol.01</span>
+  </header>
+
+  <!-- Result Card -->
+  <div class="result-card" id="resultCard">
+    <p class="idle-text" id="idleText">버튼을 눌러<br>오늘의 메뉴를 뽑아보세요 🍽️</p>
+    <div class="rolling-display" id="rollingDisplay"></div>
+    <div class="menu-emoji"  id="menuEmoji"></div>
+    <div class="menu-name"   id="menuName"></div>
+    <div class="menu-tag"    id="menuTag"></div>
+    <div class="tefal-badge" id="tefalBadge">
+      <span class="tefal-dot"></span>테팔 웹진 공식 레시피
+    </div>
+    <a class="recipe-btn" id="recipeBtn" href="#" target="_blank" rel="noopener noreferrer">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      레시피 보러가기
+    </a>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-area">
+    <button class="spin-btn" id="spinBtn" onclick="spinMenu()">
+      <span class="btn-shine"></span>
+      🎲 &nbsp;오늘 저녁 메뉴 뽑기
+    </button>
+    <button class="again-btn" id="againBtn" onclick="spinMenu()">↺ &nbsp;다시 뽑기</button>
+  </div>
+
+  <!-- Menu list -->
+  <div class="menu-list-section">
+    <button class="list-toggle" id="listToggle" onclick="toggleList()">
+      <span>전체 메뉴 보기 (13가지)</span>
+      <span class="arrow">▾</span>
+    </button>
+    <div class="menu-grid" id="menuGrid"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-line">
+    <span class="footer-brand">Tefal Webzine</span>
+    <span class="footer-mark">오늘도 맛있는 저녁 🍴</span>
+  </div>
+
+</div>
+
+<script>
+  const BASE = 'https://tefalwebzine.co.kr/mini-pop-recipe/';
+
+  const MENUS = [
+    { name:"트러플 버섯솥밥",   emoji:"🍄", tag:"솥밥",   url: BASE+'%ed%8a%b8%eb%9f%ac%ed%94%8c-%eb%b2%84%ec%84%af%ec%86%a5%eb%b0%a5/' },
+    { name:"톳 채소밥",         emoji:"🌿", tag:"솥밥",   url: BASE+'%ed%86%b3-%ec%b1%84%ec%86%8c%eb%b0%a5/' },
+    { name:"곤드레밥",          emoji:"🌾", tag:"솥밥",   url: BASE+'%ea%b3%a4%eb%93%9c%eb%a0%88%eb%b0%a5%ec%bd%a9%eb%82%98%eb%ac%bc%eb%b0%a5/' },
+    { name:"연어스테이크솥밥",  emoji:"🐟", tag:"솥밥",   url: BASE+'%ec%97%b0%ec%96%b4%ec%86%a5%eb%b0%a5/' },
+    { name:"전복솥밥",          emoji:"🐚", tag:"솥밥",   url: BASE+'%ec%a0%84%eb%b3%b5%ec%86%a5%eb%b0%a5/' },
+    { name:"스테이크솥밥",      emoji:"🥩", tag:"솥밥",   url: BASE+'%ec%8a%a4%ed%85%8c%ec%9d%b4%ed%81%ac-%eb%a7%88%eb%8a%98-%ec%86%a5%eb%b0%a5/' },
+    { name:"참치솥밥",          emoji:"🐠", tag:"솥밥",   url: BASE+'%ec%b0%b8%ec%b9%98%ec%96%91%ed%8c%8c%eb%b0%a5/' },
+    { name:"쇠고기미역국",      emoji:"🥣", tag:"국",     url: BASE+'%ec%87%a0%ea%b3%a0%ea%b8%b0%eb%af%b8%ec%97%ad%ea%b5%ad/' },
+    { name:"시래기된장국",      emoji:"🍲", tag:"국",     url: BASE+'%ec%8b%9c%eb%9e%98%ea%b8%b0-%eb%90%9c%ec%9e%a5%ea%b5%ad/' },
+    { name:"쇠고기 야채죽",     emoji:"🥄", tag:"죽",     url: BASE+'%ec%87%a0%ea%b3%a0%ea%b8%b0%ec%95%bc%ec%b1%84%ec%a3%bd/' },
+    { name:"밥솥카스테라 기본", emoji:"🍞", tag:"디저트", url: BASE+'%ec%8a%a4%ed%8e%80%ec%a7%80%ec%bc%80%ec%9d%b4%ed%81%ac/' },
+    { name:"생크림케이크",      emoji:"🎂", tag:"디저트", url: BASE+'%ec%83%9d%ed%81%ac%eb%a6%bc%ec%bc%80%ec%9d%b4%ed%81%ac/' },
+    { name:"통밀당근케이크",    emoji:"🥕", tag:"디저트", url: BASE+'%ed%86%b5%eb%b0%80%eb%8b%b9%ea%b7%bc%ec%bc%80%ec%9d%b4%ed%81%ac/' },
+  ];
+
+  let currentIdx = -1;
+  let rolling = false;
+
+  // Build menu grid
+  const grid = document.getElementById('menuGrid');
+  MENUS.forEach((m, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'menu-chip';
+    chip.id = `chip-${i}`;
+    chip.textContent = m.name;
+    grid.appendChild(chip);
+  });
+
+  function toggleList() {
+    document.getElementById('listToggle').classList.toggle('open');
+    document.getElementById('menuGrid').classList.toggle('open');
+  }
+
+  function spinMenu() {
+    if (rolling) return;
+    rolling = true;
+
+    const btn        = document.getElementById('spinBtn');
+    const againBtn   = document.getElementById('againBtn');
+    const idleText   = document.getElementById('idleText');
+    const rollingD   = document.getElementById('rollingDisplay');
+    const menuName   = document.getElementById('menuName');
+    const menuEmoji  = document.getElementById('menuEmoji');
+    const menuTag    = document.getElementById('menuTag');
+    const recipeBtn  = document.getElementById('recipeBtn');
+    const tefalBadge = document.getElementById('tefalBadge');
+    const card       = document.getElementById('resultCard');
+
+    // reset
+    idleText.style.display = 'none';
+    menuName.classList.remove('visible');
+    menuEmoji.classList.remove('visible');
+    menuTag.classList.remove('visible');
+    recipeBtn.classList.remove('visible');
+    tefalBadge.classList.remove('visible');
+    againBtn.classList.remove('visible');
+    btn.disabled = true;
+
+    if (currentIdx >= 0) {
+      document.getElementById(`chip-${currentIdx}`)?.classList.remove('highlight');
+    }
+
+    card.classList.add('rolling');
+    rollingD.style.display = 'block';
+    rollingD.style.animation = 'pulse 0.13s infinite';
+
+    let ticks = 0;
+    const interval = setInterval(() => {
+      rollingD.textContent = MENUS[Math.floor(Math.random() * MENUS.length)].name;
+      if (++ticks >= 20) { clearInterval(interval); finalize(); }
+    }, 75);
+
+    function finalize() {
+      let pick;
+      do { pick = Math.floor(Math.random() * MENUS.length); }
+      while (pick === currentIdx && MENUS.length > 1);
+      currentIdx = pick;
+
+      const chosen = MENUS[pick];
+      rollingD.style.display = 'none';
+      card.classList.remove('rolling');
+
+      menuEmoji.textContent = chosen.emoji;   menuEmoji.classList.add('visible');
+      menuName.textContent  = chosen.name;    menuName.classList.add('visible');
+      menuTag.textContent   = chosen.tag;     menuTag.classList.add('visible');
+      tefalBadge.classList.add('visible');
+      recipeBtn.href = chosen.url;            recipeBtn.classList.add('visible');
+      againBtn.classList.add('visible');
+      btn.disabled = false;
+      rolling = false;
+
+      document.getElementById(`chip-${pick}`)?.classList.add('highlight');
+    }
+  }
+</script>
+</body>
+</html>
